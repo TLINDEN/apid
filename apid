@@ -1,0 +1,450 @@
+#!/usr/bin/perl
+
+use lib qw(.);
+use HTTP::Daemon::SSL;
+use HTTP::Server::Brick; # use patched Brick which uses $res for 401 responses
+use HTTP::Status qw(:constants :is status_message);
+use HTTP::Request::Params;
+use URI::Escape;
+use Daemon::Generic;
+use Config::General qw(ParseConfig);
+use Data::Dumper;
+use CGI::Cookie;
+use MIME::Base64;
+use JSON;
+use Digest::SHA qw(sha256_base64);
+use Crypt::Random qw( makerandom );
+use Data::Validate::Struct;
+
+sub get;
+sub auth;
+sub request;
+
+our (%map, %cfg, %ses, %valid, %tpl);
+our ($server, $req, $res, $doauth, $cval, $docval, $apidoc);
+our ($sublogin);
+our ($authbasic, $authuri);
+
+# decorator syntactic sugar
+use constant login    => 'login';
+use constant validate => 'validate';
+use constant basic    => 'basic';
+use constant redirect => 'redirect';
+use constant doc      => 'doc';
+
+%tpl = (
+	head => qq(<html><head><title>[name] [version]</title></head><body><h1>[name] [version]</h1>),
+	cap  => qq(<h2>[path]</h2><ul>),
+	auth => qq(<li>requires authentication</li>),
+	val  => qq(<li>requires POST data:<br/><pre>[val]</pre></li>),
+	des  => qq(</ul><p>[des]</p>),
+	foot => qq(</body>)
+);
+
+sub implement {
+  my ($what, $sub) = @_;
+  if ($what eq login) {
+    $sublogin = $sub;
+  }
+}
+
+sub request {
+  # decorators
+  my ($what, $arg) = @_;
+  if ($what eq login) {
+    $doauth = 1;
+  }
+  elsif ($what eq validate) {
+    $cval = new Data::Validate::Struct($arg);
+  }
+  elsif ($what eq doc) {
+    $docval = $arg;
+  }
+  else {
+    die "Invalid decorator requested: " . $what;
+  }
+}
+
+sub addoc {
+  my ($path, $doc) = @_;
+
+  if (! $apidoc) {
+    $apidoc = &addtpl('head');    
+  }
+
+  $apidoc .= &addtpl(cap  => $path);
+  $apidoc .= &addtpl(auth => $path);
+  $apidoc .= &addtpl(val  => $path);
+  $apidoc .= &addtpl(des  => $doc);
+}
+
+sub addtpl {
+  my ($type, $doc) = @_;
+
+  my $t = $tpl{$type};
+
+  if ($type eq 'cap') {
+    $t =~ s/\[path\]/$doc/g;
+  }
+  elsif ($type eq 'auth') {
+    if (! $map{$doc}->{auth}) {
+      $t = '';
+    }
+  }
+  elsif ($type eq 'val') {
+    if ($valid{$doc}) {
+      my $val = Dumper($valid{$doc}->{structure});
+      $val =~ s/\$VAR1 = /       /;
+      $t =~ s/\[val\]/$val/g;
+    }
+    else {
+      $t = '';
+    }
+  }
+  elsif ($type eq 'des') {
+     $t =~ s/\[des\]/$doc/g;
+  }
+  elsif ($type eq 'head') {
+    $t =~ s/\[name\]/$cfg{apiname}/g;
+    $t =~ s/\[version\]/$cfg{apiversion}/g;
+  }
+
+  return $t;
+}
+
+sub auth {
+  my($type, $param) = @_;
+  if ($type eq redirect) {
+    $authuri = $param;
+  }
+  elsif ($type eq basic) {
+    $authbasic = $param;
+  }
+  else {
+    die "Unknown auth type $type\n";
+  }
+}
+
+sub get {
+  my($path, $sub) = @_;
+  $map{$path}->{sub} = $sub;
+
+  # activate decorators, if any
+  if ($doauth) {
+    $map{$path}->{auth} = 1;
+    $doauth = 0;
+  }
+
+  if ($cval) {
+    $valid{$path} = $cval;
+    $cval = 0;
+  }
+
+  if ($docval) {
+    &addoc($path, $docval);
+    $docval = '';
+  }
+
+}
+
+
+
+sub authheader {
+  $res->header('WWW-Authenticate' => 'Basic realm="apid"');
+  $res->code(HTTP_UNAUTHORIZED);
+  $res->header('Content-type' => 'application/json; charset=UTF-8');
+  $res->add_content("{ \"error\": \"please authenticate\" }");
+  return 0;
+}
+
+sub doauthredir {
+  ($req, $res) = @_;
+  my $data;
+
+  if ($req->content) {
+    if ($req->content =~ /^\{/) {
+      eval { $data = decode_json($req->content); };
+    }
+    else {
+      # try decoding as query
+      my $query = HTTP::Request::Params->new({ req => $req });
+      $data = $query->params;
+      delete $data->{keywords}; 
+    }
+  }
+
+  if ($data) {
+    if (exists $data->{user} && exists $data->{pass}) {
+      if ($sublogin->($data->{user}, $data->{pass})) {
+	&dosession;
+	$res->header('Content-type' => 'application/json; charset=UTF-8');
+	$res->add_content("{ \"info\": \"authenticated\" }");
+	return 1;
+      }
+    }
+  }
+
+  $res->code(HTTP_UNAUTHORIZED);
+  $res->header('Content-type' => 'application/json; charset=UTF-8');
+  $res->add_content("{ \"error\": \"please authenticate\" }");
+
+  return 1;
+}
+
+
+sub authredir {
+  $res->{target_uri} = URI::http->new($authuri);
+  $res->code(302);
+  return 0;
+}
+
+sub doauth {
+  if ($req->header('Cookie')) {
+    my $rawcookie = $req->header('Cookie');
+    if ($rawcookie =~ /^Session=(.*)$/) {
+      my $session = uri_unescape($1);
+      if (exists $ses{$session}) {
+	if (time - $ses{$session} < 86400) {
+	  return 1;
+	}
+      }
+    }
+  }
+
+  # no session
+  if ($authbasic) {
+    return &doauthbasic;
+  }
+  else {
+    return &authredir;
+  }
+}
+
+sub doauthbasic {
+  # no session, basic auth
+  my $auth = $req->header('Authorization');
+  if (! $auth) {
+    return &authheader;
+  }
+  else {
+    my ($basic, $b64) = split /\s\s*/, $auth;
+    my $clear = decode_base64($b64);
+    my($user, $pass) = split /:/, $clear;
+    if (! $sublogin->($user, $pass)) {
+      return &authheader;
+    }
+    else {
+      &dosession;
+      $res->header('WWW-Authenticate' => 'Basic realm="apid"');
+    }
+  }
+  return 1;
+}
+
+sub dosession {
+  my $session = sha256_base64(makerandom ( Size => 512, Strength => 1 ) );
+  $ses{$session} = time;
+  my $cookie = CGI::Cookie->new(
+				-name    => 'Session',
+				-expires => '+1d',
+				-value   => $session);
+  $res->header('Set-Cookie' => $cookie);
+}
+
+sub dodoc {
+  ($req, $res) = @_;
+  $res->header('Content-type' => 'text/html; charset=UTF-8');
+  $res->add_content($apidoc . $tpl{foot});
+  return 1;
+}
+
+sub process {
+  ($req, $res) = @_;
+  my $fail = 1;
+  my $path = '';
+  my $found = 0;
+  my $jsonop = JSON->new->allow_nonref;
+
+  if (! $req->{path_info}) {
+    $req->{path_info} = '/';
+  }
+
+  foreach my $path (sort { length($b) <=> length($a) } keys %map) {
+    if ($path eq $req->{path_info}) {
+      $found = 1;
+      if ($map{$path}->{auth}) {
+	if (! &doauth) {
+	  return 1; # auth requested, user unauthenticated, else continue
+	}
+      }
+      my $remainder = $req->{path_info};
+      $remainder =~ s/\Q$path\E//;
+      $req->{path_info} = $remainder;
+      my $go = $map{$path}->{sub};
+      my ($put, $hash);
+
+      if ($req->content) {
+	if ($req->content =~ /^\{/) {
+	  eval { $put = decode_json($req->content); };
+	  if ($@) {
+	    $@ =~ s/ at $0 line.*//;
+	    $@ = "JSON Parser Error: $@";
+	    last;
+	  }
+	}
+	else {
+	  # try decoding as query
+	  my $query = HTTP::Request::Params->new({ req => $req });
+	  $put = $query->params;
+	  delete $put->{keywords}; 
+	}
+      }
+      else {
+	# maybe there were cgi get params
+	my $query = HTTP::Request::Params->new({ req => $req });
+	$put = $query->params;
+	delete $put->{keywords}; 
+      }
+
+      if (exists  $valid{$path}) {
+	my $ok;
+	eval { $ok = $valid{$path}->validate($put); };
+	if (! $ok || $@) {
+	  $@ =  $valid{$path}->errstr();
+	  chomp $@;
+	  $@ =~ s/ at .*$//;
+	  last;
+	}
+      }
+
+      eval { $hash = $go->($put); };
+
+      if (!$@) {
+	if ($hash) {
+	  my $json = encode_json($hash);
+	  #my $json = $jsonop->pretty->encode($hash);
+	  $res->add_content("$json");
+	}
+	$fail = 0;
+      }
+
+      last;
+    }
+  }
+
+  if (!$found) {
+    $res->code(404);
+  }
+  else {
+    if (! $res->header('Content-type')) {
+      $res->header('Content-type' => 'application/json; charset=UTF-8');
+    }
+
+    if ($fail) {
+      $res->code(500);
+      $res->add_content("{ \"error\": \"$@ $!\" }");
+    }
+  }
+
+  1;
+}
+
+sub gd_preconfig {
+  my $self = shift;
+  my %c = ParseConfig($self->{configfile}) or die "Could not open config: $!\n";
+  return %c;
+}
+
+sub gd_run {
+  $server->start();
+}
+
+sub gd_postconfig {
+  my($self, %c) = @_;
+
+  # FIXME: check cfg vars, check if files exist
+  %cfg = %c;
+
+  if (-e $cfg{map}) {
+    require $cfg{map};
+  }
+  else {
+    die "Could not find map file $cfg{map}!\n";
+  }
+
+  if (exists $cfg{sslcrt} && exists $cfg{sslkey}) {
+    my %ssl;
+    foreach my $key (keys %cfg) {
+      if ($key =~ /^SSL/) {
+	$ssl{$key} = $cfg{$key};
+      }
+    }
+    $server = HTTP::Server::Brick->new(
+				       port => $cfg{port},
+				       daemon_class => 'HTTP::Daemon::SSL',
+				       daemon_args  => [
+							SSL_key_file  => $cfg{sslkey},
+							SSL_cert_file => $cfg{sslcrt},
+							%ssl
+						       ],
+				       );
+  }
+  else {
+    $server = HTTP::Server::Brick->new(
+				       port => $cfg{port},
+				       daemon_class => 'HTTP::Daemon',
+				       );
+  }
+
+  if ($authuri) {
+    $server->mount( $authuri => { handler => sub { &doauthredir } });
+  }
+
+  $server->mount( '/doc' => { handler => sub { &dodoc }, wildcard => 1 });
+
+  $server->mount( '/' => { handler => sub { &process }, wildcard => 1 });
+}
+
+newdaemon(
+        progname        => 'apid',
+        pidfile         => 'apid.pid',
+        configfile      => 'apid.conf',
+ );
+
+$sublogin = sub { print "login not implemented\n"; return 0; };
+
+
+
+
+
+=head1 curl commands
+
+auth to url with login requested:
+
+ curl -c cookies -b cookies -k -v --user USER:PASS https://localhost:4443/foo/bar
+
+access url when auth ok:
+
+ curl -c cookies -b cookies -k -v https://localhost:4443/foo/bar
+
+post query data:
+
+ curl -k -v -d "name=foo&year=2014" https://localhost:4443/foo/bar
+
+post json data:
+
+ curl -k -v -d "{\"user\":{\"name\":\"foo\"}}" https://localhost:4443/foo/bar
+
+post json file 'body.json':
+
+ curl -k -v -H "Content-Type: application/json" -d @body.json https://localhost:4443/foo/bar
+
+post data as query string:
+
+ curl -k -v -d "https://localhost:4443/foo/bar?name=hans&age=2014"
+
+get json data:
+
+ curl -k -v -d https://localhost:4443/foo/bar
+
+=cut
