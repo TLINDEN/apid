@@ -1,5 +1,9 @@
 #!/usr/bin/perl
 
+package HTTP::Daemon::APID;
+
+$HTTP::Daemon::APID::VERSION = '0.01';
+
 use lib qw(.);
 use HTTP::Daemon;
 use HTTP::Daemon::SSL;
@@ -347,7 +351,7 @@ sub process {
     }
 
     if ($fail) {
-      #$res->code(500) if (! $res->;
+      $res->code(403);
       $res->add_content("{ \"error\": \"$@ $!\" }");
     }
   }
@@ -604,9 +608,148 @@ Full example:
    return { date => $date };
  };
 
+In this case we are using basic authentication which is backed by LDAP.
+If successfull, apid will return a cookie with a session id, which
+can be used in subsequent requests. However, with basic authentication
+this is optional, you may also leave the session cookie and just put
+the auth data into every request.
 
+=head3 ENABLE BASIC AUTHENTICATION
 
-=head1 curl commands
+ auth basic => 'my api';
+
+The second parameter to the B<auth> decorator is the realm.
+
+=head3 ENABLE POST/REDIRECT AUTHENTICATION
+
+ auth redirect => '/login';
+
+The second parameter to the B<auth> decorator is the login uri.
+
+In this mode, an unauthenticated user is being redirected to the
+specified uri, where the user has to POST the username and password,
+which can either be posted as a JSON string or as query string. Examples:
+
+Post auth data as JSON string:
+
+ curl -d "{\"user\":{\"me\":\"mypass\"}}" http://localhost:8080/login
+
+Post auth data directly:
+
+ curl -d "user=me&pass=mypass" http://localhost:8080/login
+
+It is also possible to use a query string
+
+ curl "http://localhost:8080/login?user=me&pass=mypass"
+
+=head3 LOGIN IMPLEMENTATION
+
+In either case, you must implement the actual login function by
+using the 'implement' decorator:
+
+ implement login => sub { my($user, $pass) = @_; ... };
+
+Inside, you can use whatever you want. I'd suggest using one of
+the Authen::Simple submodules.
+
+=head3 AUTHENTICATOIN DECORATOR
+
+To enable authentication for a specific uri, add the following
+decorator in front of it:
+
+ request login;
+ get '/date' => sub { .. };
+
+This has to be done for every uri handler. If you leave the
+decorator for a handler it can be accessed without authentication.
+Example:
+
+ request login;
+ get '/date'   => sub { .. };
+
+ get '/uptime' => sub { .. };
+
+ request login;
+ get '/vmstat' => sub { .. };
+
+In this example, the uris /data and /vmstat require authentication
+while /uptime can be accessed by everyone.
+
+=head2 URI MAPPING
+
+There's only one decorator call you use to map an uri to a
+handler: B<get>. Apid doesn't distinguish between POST, PUT, DELETE
+or GET requests. So, however the uri have been called, your handler
+will always be called. If you need to distinguish between the
+various request types, you have to do it yourself in your handler.
+
+ get '/some/uri' => sub { my $data = shift; ... return {}; };
+
+The handler gets passed the submitted data as its first and only
+parameter, if present. The data is always a perl structure.
+
+Apid expects the handler to return a perl structure as well, which
+will be converted to JSON and returned to the client.
+
+There are a couple of variables which are available to each
+handler:
+
+=over
+
+=item B<$req>
+
+This is a standard L<HTTP::Request> object. In addition, if authentication
+was enabled, it contains the username of the authenticated client:
+
+ $req->{user}
+
+=item B<$res>
+
+This is a standard L<HTTP::Response> object. You may modify the HTTP
+return code or add additional headers to the response as you please.
+
+=item B<%cfg>
+
+This is a hash containing all options of the configuration file. It has
+been parsed by L<Config::General>.
+
+=back
+
+=head2 INPUT VALIDATION
+
+Apid can validate input data automatically by using L<Data::Validate::Struct>.
+To enable it, use the validate decorator:
+
+ request validate => { expression => 'text' };
+ get '/ps/search' => sub {
+   my $data = shift;
+   return &ps2a($data->{expression});
+ };
+
+The parameter to the decorator is the validator struct required by
+L<Data::Validate::Struct>. Please refer to the documentation there
+for details.
+
+If input validation fails, apid will return an error message as JSON
+and HTTP response code 403.
+
+=head2 AUTOMATIC DOCUMENTATION
+
+Usually you'll want to write the documentation for your API
+yourself. For the lazy ones, there's a documentation decorator,
+which you can use to generate it.
+
+ request doc => 'some text';
+ get '/some/uri' => sub { .. };
+
+If apid encounters one or more documentation decorators it generates
+a documentation which is available at /doc/.
+
+Beware, that this documentation is very basic, however it at least
+explains if the uri requires authentication, what kind or input it
+expects (if validation were enabled) and if authentication is required.
+
+=head1 HELPFUL CURL COMMANDS FOR TESTING
 
 auth to url with login requested:
 
@@ -635,5 +778,36 @@ post data as query string:
 get json data:
 
  curl -k -v -d https://localhost:4443/foo/bar
+
+=head1 AUTHOR
+
+T.v.Dein <tlinden@cpan.org>
+
+=head1 BUGS
+
+Report bugs to
+http://rt.cpan.org/NoAuth/ReportBug.html?Queue=HTTP::Daemon::APID
+
+=head1 SEE ALSO
+
+L<HTTP::Daemon>
+L<HTTP::Daemon::SSL>
+L<Daemon::Generic>
+L<Config::General>
+L<Data::Validate::Struct>
+
+=head1 COPYRIGHT
+
+Copyright (c) 2014 by T.v.Dein <tlinden@cpan.org>.
+All rights reserved.
+
+=head1 LICENSE
+
+This program is free software; you can redistribute it
+and/or modify it under the same terms as Perl itself.
+
+=head1 VERSION
+
+HTTP::Daemon::APID Version 0.01.
 
 =cut
