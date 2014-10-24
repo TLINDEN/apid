@@ -652,7 +652,10 @@ using the 'implement' decorator:
 Inside, you can use whatever you want. I'd suggest using one of
 the Authen::Simple submodules.
 
-=head3 AUTHENTICATOIN DECORATOR
+The login handler must return true to indicate authentication
+was successfull.
+
+=head3 AUTHENTICATION DECORATOR
 
 To enable authentication for a specific uri, add the following
 decorator in front of it:
