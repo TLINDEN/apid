@@ -2,7 +2,7 @@
 
 package HTTP::Daemon::APID;
 
-$HTTP::Daemon::APID::VERSION = '0.01';
+$HTTP::Daemon::APID::VERSION = '0.02';
 
 use lib qw(.);
 use HTTP::Daemon;

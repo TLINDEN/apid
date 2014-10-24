@@ -1,6 +1,6 @@
 =head1 NAME
 
-HTTP::Daemon::APID example
+apid example usage
 
 =head1 DESCRIPTION
 
