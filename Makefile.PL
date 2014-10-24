@@ -2,7 +2,7 @@ use ExtUtils::MakeMaker;
 
 my $preop =
     'perl -MPod::Markdown -e \'Pod::Markdown->new->filter(@ARGV)\' $(VERSION_FROM) | tee $(DISTVNAME)/README > README.md;' .
-    'pod2text $(VERSION_FROM) | tee $(DISTVNAME)/README > README';
+    'pod2text $(VERSION_FROM) | tee $(DISTVNAME)/README > README;';
 
 WriteMakefile(
               'NAME'         => 'HTTP::Daemon::APID',

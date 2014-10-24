@@ -481,20 +481,20 @@ apid - Generic REST API Daemon
 
 =head1 SYNOPSIS
 
-Usage: apid [ -c file ] [ -f ] { command }
- -c file         Specify configuration file (instead of apid.conf)
- -f              Run in the foreground (don't detach)
+ Usage: apid [ -c file ] [ -f ] { command }
+  -c file         Specify configuration file (instead of apid.conf)
+  -f              Run in the foreground (don't detach)
 
-Possible commands are:
- start      Starts a new apid if there isn't one running already
- stop       Stops a running apid
- reload     Causes a running apid to reload it's config file.
-            Starts a new one if none is running.
- restart    Stops a running apid if one is running. Starts a new one.
- check      Check the configuration file and report the daemon state
- help       Display this usage info
- version    Display the version of apid
- debug      Starts a new apid in the foreground
+ Possible commands are:
+  start      Starts a new apid if there isn't one running already
+  stop       Stops a running apid
+  reload     Causes a running apid to reload it's config file.
+             Starts a new one if none is running.
+  restart    Stops a running apid if one is running. Starts a new one.
+  check      Check the configuration file and report the daemon state
+  help       Display this usage info
+  version    Display the version of apid
+  debug      Starts a new apid in the foreground
 
 =head1 DESCRIPTION
 
