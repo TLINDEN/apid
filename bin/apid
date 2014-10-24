@@ -1,8 +1,6 @@
 #!/usr/bin/perl
 
-package HTTP::Daemon::APID;
-
-$HTTP::Daemon::APID::VERSION = '0.02';
+our $VERSION = '0.02';
 
 use lib qw(.);
 use HTTP::Daemon;

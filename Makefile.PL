@@ -5,7 +5,7 @@ my $preop =
     'pod2text $(VERSION_FROM) | tee $(DISTVNAME)/README > README;';
 
 WriteMakefile(
-              'NAME'         => 'HTTP::Daemon::APID',
+              'NAME'         => 'apid',
               'VERSION_FROM' => 'bin/apid', # finds $VERSION
               'EXE_FILES'    => [ 'bin/apid' ],
 	      'PREREQ_PM'    => {
