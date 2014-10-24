@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 use lib qw(.);
 use HTTP::Daemon;
@@ -787,7 +787,7 @@ T.v.Dein <tlinden@cpan.org>
 =head1 BUGS
 
 Report bugs to
-http://rt.cpan.org/NoAuth/ReportBug.html?Queue=HTTP::Daemon::APID
+http://rt.cpan.org/NoAuth/ReportBug.html?Queue=apid
 
 =head1 SEE ALSO
 
@@ -809,6 +809,6 @@ and/or modify it under the same terms as Perl itself.
 
 =head1 VERSION
 
-HTTP::Daemon::APID Version 0.01.
+apid Version 0.03.
 
 =cut
