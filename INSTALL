@@ -6,6 +6,6 @@ To install APID, type:
 
 If you're using CPAN:
 
- cpanm HTTP::Daemon::APID
+ cpanm apid
 
 This will install all dependencies as well.

@@ -275,8 +275,7 @@ AUTHOR
     T.v.Dein <tlinden@cpan.org>
 
 BUGS
-    Report bugs to
-    http://rt.cpan.org/NoAuth/ReportBug.html?Queue=HTTP::Daemon::APID
+    Report bugs to http://rt.cpan.org/NoAuth/ReportBug.html?Queue=apid
 
 SEE ALSO
     HTTP::Daemon HTTP::Daemon::SSL Daemon::Generic Config::General
@@ -290,5 +289,5 @@ LICENSE
     under the same terms as Perl itself.
 
 VERSION
-    HTTP::Daemon::APID Version 0.01.
+    apid Version 0.03.
 

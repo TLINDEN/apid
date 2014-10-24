@@ -293,7 +293,7 @@ T.v.Dein <tlinden@cpan.org>
 # BUGS
 
 Report bugs to
-http://rt.cpan.org/NoAuth/ReportBug.html?Queue=HTTP::Daemon::APID
+http://rt.cpan.org/NoAuth/ReportBug.html?Queue=apid
 
 # SEE ALSO
 
@@ -315,4 +315,4 @@ and/or modify it under the same terms as Perl itself.
 
 # VERSION
 
-HTTP::Daemon::APID Version 0.01.
+apid Version 0.03.
