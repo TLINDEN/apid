@@ -1,0 +1,11 @@
+To install APID, type:
+
+ perl Makefile.PL
+ make
+ sudo make install
+
+If you're using CPAN:
+
+ cpanm HTTP::Daemon::APID
+
+This will install all dependencies as well.
