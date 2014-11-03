@@ -1,12 +1,12 @@
 use ExtUtils::MakeMaker;
 
 my $preop =
-    'perl -MPod::Markdown -e \'Pod::Markdown->new->filter(@ARGV)\' $(VERSION_FROM) | tee $(DISTVNAME)/README > README.md;' .
-    'pod2text $(VERSION_FROM) | tee $(DISTVNAME)/README > README;';
+    'perl -MPod::Markdown -e \'Pod::Markdown->new->filter(@ARGV)\' bin/apid | tee $(DISTVNAME)/README > README.md;' .
+    'pod2text bin/apid | tee $(DISTVNAME)/README > README;';
 
 WriteMakefile(
-              'NAME'         => 'apid',
-              'VERSION_FROM' => 'bin/apid', # finds $VERSION
+              'NAME'         => 'WWW::REST::Apid',
+              'VERSION_FROM' => 'lib/WWW/REST/Apid.pm', # finds $VERSION
               'EXE_FILES'    => [ 'bin/apid' ],
 	      'PREREQ_PM'    => {
 				 'CGI::Cookie' => 0,

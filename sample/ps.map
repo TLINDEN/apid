@@ -85,4 +85,13 @@ get '/' => sub {
   return 0;
 };
 
+get '/jquery.js' => sub {
+  $res->header('Content-type' => 'text/javascript; charset=UTF-8');
+  open I, "<jquery.js" or die "Could not open jquery.js: $!\n";
+  my $js = join '', <I>;
+  close I;
+  $res->add_content($js);
+  return 0;
+};
+
 1;

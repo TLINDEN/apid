@@ -1,32 +1,31 @@
 #!/usr/bin/perl
 
-our $VERSION = '0.04';
+package WWW::REST::Apid::Daemon;
 
-use lib qw(.);
-use HTTP::Daemon;
-use HTTP::Daemon::SSL;
-use HTTP::Status qw(:constants :is status_message);
-use HTTP::Request::Params;
-use URI::Escape;
+$WWW::REST::Apid::Daemon::VERSION = '0.05';
+
+use lib qw(../blib/lib);
+use WWW::REST::Apid;
 use Daemon::Generic;
 use Config::General qw(ParseConfig);
 use Data::Dumper;
-use CGI::Cookie;
-use MIME::Base64;
-use JSON;
-use Digest::SHA qw(sha256_base64);
-use Crypt::Random qw( makerandom );
-use Data::Validate::Struct;
-use DB_File;
 
 sub get;
 sub auth;
 sub request;
 
-our (%map, %cfg, %ses, %valid, %tpl);
-our ($server, $req, $res, $doauth, $cval, $docval, $apidoc);
-our ($sublogin);
-our ($authbasic, $authuri);
+our ($server, $doauth, $cval, $docval, $apidoc);
+
+our %tpl = (
+	    head => qq(<html><head><title>[name] [version]</title></head>
+                       <body><h1>[name] [version]</h1>),
+	    cap  => qq(<h2>[path]</h2><ul>),
+	    auth => qq(<li>requires authentication</li>),
+	    val  => qq(<li>requires POST data:<br/><pre>[val]</pre></li>),
+	    des  => qq(</ul><p>[des]</p>),
+	    foot => qq(</body>)
+);
+
 
 # decorator syntactic sugar
 use constant login    => 'login';
@@ -35,19 +34,11 @@ use constant basic    => 'basic';
 use constant redirect => 'redirect';
 use constant doc      => 'doc';
 
-%tpl = (
-	head => qq(<html><head><title>[name] [version]</title></head><body><h1>[name] [version]</h1>),
-	cap  => qq(<h2>[path]</h2><ul>),
-	auth => qq(<li>requires authentication</li>),
-	val  => qq(<li>requires POST data:<br/><pre>[val]</pre></li>),
-	des  => qq(</ul><p>[des]</p>),
-	foot => qq(</body>)
-);
 
 sub implement {
   my ($what, $sub) = @_;
   if ($what eq login) {
-    $sublogin = $sub;
+    $server->{sublogin} = $sub;
   }
 }
 
@@ -58,7 +49,7 @@ sub request {
     $doauth = 1;
   }
   elsif ($what eq validate) {
-    $cval = new Data::Validate::Struct($arg);
+    $cval = $arg;  #new Data::Validate::Struct($arg);
   }
   elsif ($what eq doc) {
     $docval = $arg;
@@ -130,18 +121,16 @@ sub auth {
 
 sub get {
   my($path, $sub) = @_;
-  $map{$path}->{sub} = $sub;
 
-  # activate decorators, if any
-  if ($doauth) {
-    $map{$path}->{auth} = 1;
-    $doauth = 0;
-  }
+  $server->mapuri(
+		  path     => $path,
+		  handler  => $sub,
+		  doauth   => $doauth,
+		  validate => $cval
+		  );
 
-  if ($cval) {
-    $valid{$path} = $cval;
-    $cval = 0;
-  }
+  $doauth = 0;
+  $cval = 0;
 
   if ($docval) {
     &addoc($path, $docval);
@@ -151,115 +140,6 @@ sub get {
 }
 
 
-
-sub authheader {
-  $res->header('WWW-Authenticate' => 'Basic realm="apid"');
-  $res->code(HTTP_UNAUTHORIZED);
-  $res->header('Content-type' => 'application/json; charset=UTF-8');
-  $res->add_content("{ \"error\": \"please authenticate\" }");
-  return 0;
-}
-
-sub doauthredir {
-  ($req, $res) = @_;
-  my $data;
-
-  if ($req->content) {
-    if ($req->content =~ /^\{/) {
-      eval { $data = decode_json($req->content); };
-    }
-    else {
-      # try decoding as query
-      my $query = HTTP::Request::Params->new({ req => $req });
-      $data = $query->params;
-      delete $data->{keywords};
-    }
-  }
-
-  if ($data) {
-    if (exists $data->{user} && exists $data->{pass}) {
-      if ($sublogin->($data->{user}, $data->{pass})) {
-	&dosession($data->{user});
-	$res->header('Content-type' => 'application/json; charset=UTF-8');
-	$res->add_content("{ \"info\": \"authenticated\" }");
-	return 1;
-      }
-    }
-  }
-
-  $res->code(HTTP_UNAUTHORIZED);
-  $res->header('Content-type' => 'application/json; charset=UTF-8');
-  $res->add_content("{ \"error\": \"please authenticate\" }");
-
-  return 1;
-}
-
-
-sub authredir {
-  $res->{target_uri} = URI::http->new($authuri);
-  $res->code(302);
-  return 0;
-}
-
-
-sub doauth {
-  if ($req->header('Cookie')) {
-    my $rawcookie = $req->header('Cookie');
-    if ($rawcookie =~ /^Session=(.*)$/) {
-      my $session = uri_unescape($1);
-      if (exists $ses{$session}) {
-	# ok, session known, user already authenticated
-	my ($user, $time) = split /,/, $ses{$session};
-	if (time - $time < 86400) {
-	  # ok, cookie age within bounds
-	  $res->{user} = $user;
-	  return 1;
-	}
-      }
-    }
-  }
-
-  # no session
-  if ($authbasic) {
-    return &doauthbasic;
-  }
-  else {
-    return &authredir;
-  }
-}
-
-sub doauthbasic {
-  # no session, basic auth
-  my $auth = $req->header('Authorization');
-  if (! $auth) {
-    return &authheader;
-  }
-  else {
-    my ($basic, $b64) = split /\s\s*/, $auth;
-    my $clear = decode_base64($b64);
-    my($user, $pass) = split /:/, $clear;
-    if (! $sublogin->($user, $pass)) {
-      return &authheader;
-    }
-    else {
-      &dosession($user);
-      $res->header('WWW-Authenticate' => 'Basic realm="apid"');
-    }
-  }
-  return 1;
-}
-
-sub dosession {
-  my $user = shift;
-  my $session = sha256_base64(makerandom ( Size => 512, Strength => 1 ) );
-  $ses{$session} = $user . "," . time;
-  my $cookie = CGI::Cookie->new(
-				-name    => 'Session',
-				-expires => '+1d',
-				-value   => $session);
-  $res->header('Set-Cookie' => $cookie);
-}
-
 sub dodoc {
   ($req, $res) = @_;
   $res->header('Content-type' => 'text/html; charset=UTF-8');
@@ -267,102 +147,6 @@ sub dodoc {
   return 1;
 }
 
-sub process {
-  ($req, $res) = @_;
-  my $fail = 1;
-  my $path = '';
-  my $found = 0;
-  my $jsonop = JSON->new->allow_nonref;
-
-  if (! $req->{path_info}) {
-    $req->{path_info} = '/';
-  }
-
-  foreach my $path (sort { length($b) <=> length($a) } keys %map) {
-    if ($path eq $req->{path_info}) {
-      $found = 1;
-      if ($map{$path}->{auth}) {
-	if (! &doauth) {
-	  last; #return 1; # auth requested, user unauthenticated, else continue
-	}
-      }
-      my $remainder = $req->{path_info};
-      $remainder =~ s/\Q$path\E//;
-      $req->{path_info} = $remainder;
-      my $go = $map{$path}->{sub};
-      my ($put, $hash);
-
-      if ($req->content) {
-	if ($req->content =~ /^\{/) {
-	  eval { $put = decode_json($req->content); };
-	  if ($@) {
-	    $@ =~ s/ at $0 line.*//;
-	    $@ = "JSON Parser Error: $@";
-	    last;
-	  }
-	}
-	else {
-	  # try decoding as query
-	  my $query = HTTP::Request::Params->new({ req => $req });
-	  $put = $query->params;
-	  delete $put->{keywords}; 
-	}
-      }
-      else {
-	# maybe there were cgi get params
-	my $query = HTTP::Request::Params->new({ req => $req });
-	$put = $query->params;
-	delete $put->{keywords}; 
-      }
-
-      if (exists  $valid{$path}) {
-	my $ok;
-	eval { $ok = $valid{$path}->validate($put); };
-	if (! $ok || $@) {
-	  $@ =  $valid{$path}->errstr();
-	  chomp $@;
-	  $@ =~ s/ at .*$//;
-	  last;
-	}
-      }
-
-      eval { $hash = $go->($put); };
-
-      if (!$@) {
-	if ($hash) {
-	  my $json = encode_json($hash);
-	  $res->add_content("$json");
-	}
-	$fail = 0;
-      }
-
-      last;
-    }
-  }
-
-  if (!$found) {
-    $res->code(404);
-  }
-  else {
-    if (! $res->header('Content-type')) {
-      $res->header('Content-type' => 'application/json; charset=UTF-8');
-    }
-
-    if ($fail) {
-      $res->code(403);
-      $res->add_content("{ \"error\": \"$@ $!\" }");
-    }
-  }
-
-  if ($res->{user}) {
-    $res->{user} = "[" . $res->{user} . "] ";
-  }
-  else {
-    $res->{user} = "";
-  }
-
-  return $res;
-}
 
 sub gd_preconfig {
   my $self = shift;
@@ -375,8 +159,15 @@ sub gd_preconfig {
 sub gd_postconfig {
   my($self, %c) = @_;
 
-  # FIXME: check cfg vars, check if files exist
   %cfg = %c;
+
+  $server = WWW::REST::Apid->new(%cfg,
+				 log => sub {
+				   my($msg) = @_;
+				   printf ("%s [%d] %s\n", scalar localtime(), $$, $msg);
+				 },
+				 foreground => $self->{gd_foreground},
+			       );
 
   if (-e $cfg{map}) {
     require $cfg{map};
@@ -385,90 +176,25 @@ sub gd_postconfig {
     die "Could not find map file $cfg{map}!\n";
   }
 
-  if (exists $cfg{sslcrt} && exists $cfg{sslkey}) {
-    my %ssl;
-    foreach my $key (keys %cfg) {
-      if ($key =~ /^SSL/) {
-	$ssl{$key} = $cfg{$key};
-      }
-    }
-    $server = HTTP::Daemon::SSL->new(
-				     LocalPort => $cfg{port} || 443,
-				     LocalHost => $cfg{host} || 'localhost',
-				     ReuseAddr => 1,
-				     Timeout => 5,
-				     SSL_key_file  => $cfg{sslkey},
-				     SSL_cert_file => $cfg{sslcrt},
-				     %ssl
-				    ) or die "Cannot start listener: $!\n";
-  }
-  else {
-    $server = HTTP::Daemon->new(
-				LocalPort => $cfg{port} || 443,
-				LocalHost => $cfg{host} || 'localhost',
-				ReuseAddr => 1,
-				Timeout => 5,
-			       ) or die "Cannot start listener: $!\n";
-  }
-
-  if ($authuri) {
-    $map{$authuri} = sub { &doauthredir };
-  }
+  $server->authuri($authuri);
 
   if ($apidoc) {
-    $map{$authuri} = sub { &dodoc };
+    $server->mapuri(path => '/doc', handler => sub { &dodoc });
   }
 }
+
 
 newdaemon(
-        progname        => 'apid',
-        pidfile         => 'apid.pid',
-        configfile      => 'apid.conf',
- );
+	  progname   => 'apid',
+	  pidfile    => 'apid.pid',
+	  configfile => 'apid.conf',
+	 );
 
-sub log {
-  my($msg) = @_;
-  printf ("%s [%d] %s\n", scalar localtime(), $$, $msg);
-}
-
-sub dumpsessions {
-  untie %ses;
-}
-
-sub loadsessions {
-  tie %ses, 'DB_File', '/tmp/sessions', O_CREAT|O_RDWR, 0600, $DB_HASH;
-}
 
 sub gd_run {
-  &log("apid started");
-  while (1) {
-    my $conn = $server->accept or next;
-    next if fork;
-
-    &loadsessions();
-    my ($r_port, $r_iaddr) = Socket::unpack_sockaddr_in($conn->peername);
-    my $ip = Socket::inet_ntoa($r_iaddr);
-
-    while (my $req = $conn->get_request) {
-      $req->{remote_ip} = $ip;
-      $req->{remote_port} = $r_port;
-      $req->{path_info} = $req->uri->path;
-
-      my $res = HTTP::Response->new;
-      $res->code(200);
-      $res = &process($req, $res);
-
-      $conn->send_response($res);
-
-      &log($res->{user} . $ip . " " . $res->code . " " . $req->method . " " . $req->uri->path);
-    }
-    &dumpsessions();
-    exit;
-  }
-  &log("apid ended");
+  $server->run();
 }
 
-$sublogin = sub { print "login not implemented\n"; return 0; };
 
 
 1;

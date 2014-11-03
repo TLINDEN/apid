@@ -1,7 +1,7 @@
 {
    "abstract" : "unknown",
    "author" : [
-      "unknown"
+      "Thomas von Dein"
    ],
    "dynamic_config" : 1,
    "generated_by" : "ExtUtils::MakeMaker version 6.98, CPAN::Meta::Converter version 2.120630",
@@ -12,7 +12,7 @@
       "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
       "version" : "2"
    },
-   "name" : "apid",
+   "name" : "WWW-REST-Apid",
    "no_index" : {
       "directory" : [
          "t",
@@ -55,5 +55,5 @@
          "url" : "https://github.com/TLINDEN/apid"
       }
    },
-   "version" : "0.01"
+   "version" : "0.05"
 }

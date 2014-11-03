@@ -1,2 +1,5 @@
+0.05:
+	changed namespace, made module of it,
+	apid daemon only uses the module
 0.01:
 	initial version
