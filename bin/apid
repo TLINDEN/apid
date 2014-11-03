@@ -14,7 +14,7 @@ sub get;
 sub auth;
 sub request;
 
-our ($server, $doauth, $cval, $docval, $apidoc);
+our ($server, $doauth, $cval, $docval, $apidoc, $authbasic, $authuri);
 
 our %tpl = (
 	    head => qq(<html><head><title>[name] [version]</title></head>
@@ -176,7 +176,7 @@ sub gd_postconfig {
     die "Could not find map file $cfg{map}!\n";
   }
 
-  $server->authuri($authuri);
+  $server->lateconfig(authuri => $authuri, authbasic => $authbasic);
 
   if ($apidoc) {
     $server->mapuri(path => '/doc', handler => sub { &dodoc });
@@ -513,10 +513,11 @@ T.v.Dein <tlinden@cpan.org>
 =head1 BUGS
 
 Report bugs to
-http://rt.cpan.org/NoAuth/ReportBug.html?Queue=apid
+http://rt.cpan.org/NoAuth/ReportBug.html?Queue=WWW-REST-Apid
 
 =head1 SEE ALSO
 
+L<WWW::REST::Apid>
 L<HTTP::Daemon>
 L<HTTP::Daemon::SSL>
 L<Daemon::Generic>
@@ -535,6 +536,6 @@ and/or modify it under the same terms as Perl itself.
 
 =head1 VERSION
 
-apid Version 0.04.
+apid Version 0.05.
 
 =cut
