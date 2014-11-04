@@ -21,14 +21,14 @@ use HTTP::Status;
 use POSIX qw(:sys_wait_h SIGKILL SIGINT);
 use Data::Dumper;
 
-my $port = $ENV{HSB_TEST_PORT} || 8888;
-my $host = $ENV{HSB_TEST_HOST} || '127.0.0.1';
+my $port = $ENV{WRA_TEST_PORT} || 8888;
+my $host = $ENV{WRA_TEST_HOST} || '127.0.0.1';
 
 diag( '' );
 diag( '' );
 diag( "Using port: $port and host: $host for test server.");
 diag( 'If these are not suitable settings on your machine, set the environment' );
-diag( 'variables HSB_TEST_PORT and HSB_TEST_HOST to something suitable.');
+diag( 'variables WRA_TEST_PORT and WRA_TEST_HOST to something suitable.');
 diag( '' );
 
 our ($serverpid, $ua);

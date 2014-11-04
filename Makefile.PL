@@ -24,6 +24,10 @@ WriteMakefile(
 				 'MIME::Base64' => 0,
 				 'URI::Escape' => 0,
 				},
+              'BUILD_REQUIRES' => {
+                                 'ExtUtils::MakeMaker' => 0,
+                                 'LWP' => 0,
+                                  },	
 	      'META_MERGE' => {
 			       resources => {
 					     repository => 'https://github.com/TLINDEN/apid',

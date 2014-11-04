@@ -293,10 +293,11 @@ T.v.Dein <tlinden@cpan.org>
 # BUGS
 
 Report bugs to
-http://rt.cpan.org/NoAuth/ReportBug.html?Queue=apid
+http://rt.cpan.org/NoAuth/ReportBug.html?Queue=WWW-REST-Apid
 
 # SEE ALSO
 
+[WWW::REST::Apid](https://metacpan.org/pod/WWW::REST::Apid)
 [HTTP::Daemon](https://metacpan.org/pod/HTTP::Daemon)
 [HTTP::Daemon::SSL](https://metacpan.org/pod/HTTP::Daemon::SSL)
 [Daemon::Generic](https://metacpan.org/pod/Daemon::Generic)
@@ -315,4 +316,4 @@ and/or modify it under the same terms as Perl itself.
 
 # VERSION
 
-apid Version 0.04.
+apid Version 0.05.

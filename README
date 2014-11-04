@@ -275,11 +275,12 @@ AUTHOR
     T.v.Dein <tlinden@cpan.org>
 
 BUGS
-    Report bugs to http://rt.cpan.org/NoAuth/ReportBug.html?Queue=apid
+    Report bugs to
+    http://rt.cpan.org/NoAuth/ReportBug.html?Queue=WWW-REST-Apid
 
 SEE ALSO
-    HTTP::Daemon HTTP::Daemon::SSL Daemon::Generic Config::General
-    Data::Validate::Struct
+    WWW::REST::Apid HTTP::Daemon HTTP::Daemon::SSL Daemon::Generic
+    Config::General Data::Validate::Struct
 
 COPYRIGHT
     Copyright (c) 2014 by T.v.Dein <tlinden@cpan.org>. All rights reserved.
@@ -289,5 +290,5 @@ LICENSE
     under the same terms as Perl itself.
 
 VERSION
-    apid Version 0.04.
+    apid Version 0.05.
 
