@@ -2,13 +2,15 @@
 
 package WWW::REST::Apid::Daemon;
 
-$WWW::REST::Apid::Daemon::VERSION = '0.05';
+$WWW::REST::Apid::Daemon::VERSION = '0.06';
 
 use lib qw(../blib/lib);
 use WWW::REST::Apid;
 use Daemon::Generic;
 use Config::General qw(ParseConfig);
 use Data::Dumper;
+use Carp::Heavy;
+use Carp;
 
 sub get;
 sub auth;
@@ -151,6 +153,33 @@ sub dodoc {
 sub gd_preconfig {
   my $self = shift;
   my %c = ParseConfig($self->{configfile}) or die "Could not open config: $!\n";
+
+  # cwd if requested
+  if (exists $c{docroot}) {
+    if (-d $c{docroot}) {
+      chdir $c{docroot};
+    }
+    else {
+      croak "Documentroot $c{docroot} doesn't exist!\n";
+    }
+  }
+
+  # set pidfile, override Daemon::Generic behavior
+  $self->{gd_pidfile} = $c{pidfile} ? $c{pidfile} : '/var/run/apid.pid';
+  if ($self->{gd_pidfile} !~ /^\// && exists $c{docroot}) {
+    if (-d $c{docroot}) {
+      $self->{gd_pidfile} = "$c{docroot}/$pidfile";
+    }
+  }
+
+  # set procname
+  $0 = "APId";
+  if (exists $c{apiname}) {
+    my $n = $c{apiname};
+    $n =~ s/[\s\/]//g;
+    $0 = "APId-$n";
+  }
+
   return %c;
 }
 
@@ -184,16 +213,20 @@ sub gd_postconfig {
 }
 
 
+sub gd_run {
+  $server->run();
+}
+
+
+
 newdaemon(
 	  progname   => 'apid',
-	  pidfile    => 'apid.pid',
+	  pidfile    => $pidfile,
 	  configfile => 'apid.conf',
 	 );
 
 
-sub gd_run {
-  $server->run();
-}
+
 
 
 
@@ -536,6 +569,6 @@ and/or modify it under the same terms as Perl itself.
 
 =head1 VERSION
 
-apid Version 0.05.
+apid Version 0.06.
 
 =cut

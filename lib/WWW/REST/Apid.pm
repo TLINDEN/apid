@@ -2,7 +2,7 @@
 
 package WWW::REST::Apid;
 
-$WWW::REST::Apid::VERSION = '0.05';
+$WWW::REST::Apid::VERSION = '0.06';
 
 use strict;
 use warnings;
@@ -616,7 +616,7 @@ and/or modify it under the same terms as Perl itself.
 
 =head1 VERSION
 
-apid Version 0.05.
+apid Version 0.06.
 
 =cut
 
