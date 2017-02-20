@@ -19,14 +19,14 @@ sub request;
 our ($server, $doauth, $cval, $docval, $apidoc, $authbasic, $authuri);
 
 our %tpl = (
-	    head => qq(<html><head><title>[name] [version]</title></head>
+            head => qq(<html><head><title>[name] [version]</title></head>
                        <body><h1>[name] [version]</h1>),
-	    cap  => qq(<h2>[path]</h2><ul>),
-	    auth => qq(<li>requires authentication</li>),
-	    val  => qq(<li>requires POST data:<br/><pre>[val]</pre></li>),
-	    des  => qq(</ul><p>[des]</p>),
-	    foot => qq(</body>)
-);
+            cap  => qq(<h2>[path]</h2><ul>),
+            auth => qq(<li>requires authentication</li>),
+            val  => qq(<li>requires POST data:<br/><pre>[val]</pre></li>),
+            des  => qq(</ul><p>[des]</p>),
+            foot => qq(</body>)
+           );
 
 
 # decorator syntactic sugar
@@ -125,11 +125,11 @@ sub get {
   my($path, $sub) = @_;
 
   $server->mapuri(
-		  path     => $path,
-		  handler  => $sub,
-		  doauth   => $doauth,
-		  validate => $cval
-		  );
+                  path     => $path,
+                  handler  => $sub,
+                  doauth   => $doauth,
+                  validate => $cval
+                 );
 
   $doauth = 0;
   $cval = 0;
@@ -191,12 +191,12 @@ sub gd_postconfig {
   %cfg = %c;
 
   $server = WWW::REST::Apid->new(%cfg,
-				 log => sub {
-				   my($msg) = @_;
-				   printf ("%s [%d] %s\n", scalar localtime(), $$, $msg);
-				 },
-				 foreground => $self->{gd_foreground},
-			       );
+                                 log => sub {
+                                   my($msg) = @_;
+                                   printf ("%s [%d] %s\n", scalar localtime(), $$, $msg);
+                                 },
+                                 foreground => $self->{gd_foreground},
+                                );
 
   if (-e $cfg{map}) {
     require $cfg{map};
@@ -220,10 +220,10 @@ sub gd_run {
 
 
 newdaemon(
-	  progname   => 'apid',
-	  pidfile    => $pidfile,
-	  configfile => 'apid.conf',
-	 );
+          progname   => 'apid',
+          pidfile    => $pidfile,
+          configfile => 'apid.conf',
+         );
 
 
 
