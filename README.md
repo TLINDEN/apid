@@ -316,4 +316,4 @@ and/or modify it under the same terms as Perl itself.
 
 # VERSION
 
-apid Version 0.05.
+apid Version 0.06.
