@@ -39,28 +39,28 @@ sub new {
 
   # default config
   my %settings = (
-		  host        => 'localhost',
-		  port        => 8080,
-		  timeout     => 5,
-		  reuseaddr   => 1,
-		  sessionfile => '/tmp/apid.sessions',
-		  sublogin    => sub { print "login not implemented\n"; return 0; },
-		  log         => sub { return 0; },
-		  authbasic   => 'WWW::REST::Apid',
-		  authuri     => '',
-		  foreground  => 0, # don't fork if true
-		  );
+                  host        => 'localhost',
+                  port        => 8080,
+                  timeout     => 5,
+                  reuseaddr   => 1,
+                  sessionfile => '/tmp/apid.sessions',
+                  sublogin    => sub { print "login not implemented\n"; return 0; },
+                  log         => sub { return 0; },
+                  authbasic   => 'WWW::REST::Apid',
+                  authuri     => '',
+                  foreground  => 0, # don't fork if true
+                 );
 
   # internals
   my %intern = (
-		map         => {},
-		sessions    => undef, # initialized later
-		server      => undef, # initialized later
-	       );
-  
+                map         => {},
+                sessions    => undef, # initialized later
+                server      => undef, # initialized later
+               );
+
   # override defaults
   foreach my $key (keys %param) {
-    $settings{$key} = $param{$key}; 
+    $settings{$key} = $param{$key};
   }
 
   my $self = \%settings;
@@ -87,11 +87,11 @@ sub mapuri {
   my($self, %p) = @_;
 
   $self->{map}->{$p{path}} = {
-			      auth  => $p{doauth},
-			      sub   => $p{handler},
-			      valid => $p{validate} ? 
-			               Data::Validate::Struct->new($p{validate}) : 0,
-			     };
+            auth  => $p{doauth},
+            sub   => $p{handler},
+            valid => $p{validate} ? 
+                     Data::Validate::Struct->new($p{validate}) : 0,
+           };
 }
 
 
@@ -148,26 +148,26 @@ sub _init {
     my %ssl;
     foreach my $key (keys %{$self}) {
       if ($key =~ /^SSL/) {
-	$ssl{$key} = $self->{$key};
+        $ssl{$key} = $self->{$key};
       }
     }
     $self->{server} = HTTP::Daemon::SSL->new(
-					     LocalPort     => $self->{port},
-					     LocalHost     => $self->{host},
-					     ReuseAddr     => $self->{reuseaddr},
-					     Timeout       => $self->{timeout},
-					     SSL_key_file  => $self->{sslkey},
-					     SSL_cert_file => $self->{sslcrt},
-					     %ssl
-					    ) or croak "Cannot start listener: $!\n";
+               LocalPort     => $self->{port},
+               LocalHost     => $self->{host},
+               ReuseAddr     => $self->{reuseaddr},
+               Timeout       => $self->{timeout},
+               SSL_key_file  => $self->{sslkey},
+               SSL_cert_file => $self->{sslcrt},
+               %ssl
+              ) or croak "Cannot start listener: $!\n";
   }
   else {
     $self->{server} = HTTP::Daemon->new(
-					LocalPort => $self->{port},
-					LocalHost => $self->{host},
-					ReuseAddr => $self->{reuseaddr},
-					Timeout   => $self->{timeout},	
-				       ) or croak "Cannot start listener: $!\n";
+          LocalPort => $self->{port},
+          LocalHost => $self->{host},
+          ReuseAddr => $self->{reuseaddr},
+          Timeout   => $self->{timeout},  
+               ) or croak "Cannot start listener: $!\n";
   }
 }
 
@@ -207,10 +207,10 @@ sub _doauthredir {
   if ($data) {
     if (exists $data->{user} && exists $data->{pass}) {
       if ($self->{sublogin}->($data->{user}, $data->{pass})) {
-	$self->_dosession($data->{user});
-	$res->header('Content-type' => 'application/json; charset=UTF-8');
-	$res->add_content("{ \"info\": \"authenticated\" }");
-	return 1;
+        $self->_dosession($data->{user});
+        $res->header('Content-type' => 'application/json; charset=UTF-8');
+        $res->add_content("{ \"info\": \"authenticated\" }");
+        return 1;
       }
     }
   }
@@ -239,13 +239,13 @@ sub _doauth {
     if ($rawcookie =~ /^Session=(.*)$/) {
       my $session = uri_unescape($1);
       if (exists $self->{ses}->{$session}) {
-	# ok, session known, user already authenticated
-	my ($user, $time) = split /,/, $self->{ses}->{$session};
-	if (time - $time < 86400) {
-	  # ok, cookie age within bounds
-	  $res->{user} = $user;
-	  return 1;
-	}
+        # ok, session known, user already authenticated
+        my ($user, $time) = split /,/, $self->{ses}->{$session};
+        if (time - $time < 86400) {
+          # ok, cookie age within bounds
+          $res->{user} = $user;
+          return 1;
+        }
       }
     }
   }
@@ -288,9 +288,9 @@ sub _dosession {
   my $session = sha256_base64(makerandom ( Size => 512, Strength => 1 ) );
   $self->{ses}->{$session} = $user . "," . time;
   my $cookie = CGI::Cookie->new(
-				-name    => 'Session',
-				-expires => '+1d',
-				-value   => $session);
+        -name    => 'Session',
+        -expires => '+1d',
+        -value   => $session);
   $res->header('Set-Cookie' => $cookie);
 }
 
@@ -311,9 +311,9 @@ sub _process {
     if ($path eq $req->{path_info}) {
       $found = 1;
       if ($self->{map}->{$path}->{auth}) {
-	if (! $self->_doauth()) {
-	  last; # auth requested, user unauthenticated, else continue
-	}
+        if (! $self->_doauth()) {
+          last; # auth requested, user unauthenticated, else continue
+        }
       }
       my $remainder = $req->{path_info};
       $remainder =~ s/\Q$path\E//;
@@ -322,47 +322,47 @@ sub _process {
       my ($put, $hash);
 
       if ($req->content) {
-	if ($req->content =~ /^\{/) {
-	  eval { $put = decode_json($req->content); };
-	  if ($@) {
-	    $@ =~ s/ at $0 line.*//;
-	    $@ = "JSON Parser Error: $@";
-	    last;
-	  }
-	}
-	else {
-	  # try decoding as query
-	  my $query = HTTP::Request::Params->new({ req => $req });
-	  $put = $query->params;
-	  delete $put->{keywords}; 
-	}
+        if ($req->content =~ /^\{/) {
+          eval { $put = decode_json($req->content); };
+          if ($@) {
+            $@ =~ s/ at $0 line.*//;
+            $@ = "JSON Parser Error: $@";
+            last;
+          }
+        }
+        else {
+          # try decoding as query
+          my $query = HTTP::Request::Params->new({ req => $req });
+          $put = $query->params;
+          delete $put->{keywords};
+        }
       }
       else {
-	# maybe there were cgi get params
-	my $query = HTTP::Request::Params->new({ req => $req });
-	$put = $query->params;
-	delete $put->{keywords}; 
+        # maybe there were cgi get params
+        my $query = HTTP::Request::Params->new({ req => $req });
+        $put = $query->params;
+        delete $put->{keywords};
       }
 
       if ($self->{map}->{$path}->{valid}) {
-	my $ok;
-	eval { $ok = $self->{map}->{$path}->{valid}->validate($put); };
-	if (! $ok || $@) {
-	  $@ =  $self->{map}->{$path}->{valid}->errstr();
-	  chomp $@;
-	  $@ =~ s/ at .*$//;
-	  last;
-	}
+        my $ok;
+        eval { $ok = $self->{map}->{$path}->{valid}->validate($put); };
+        if (! $ok || $@) {
+          $@ =  $self->{map}->{$path}->{valid}->errstr();
+          chomp $@;
+          $@ =~ s/ at .*$//;
+          last;
+        }
       }
 
       eval { $hash = $go->($put); };
 
       if (!$@) {
-	if ($hash) {
-	  my $json = encode_json($hash);
-	  $res->add_content("$json");
-	}
-	$fail = 0;
+        if ($hash) {
+          my $json = encode_json($hash);
+          $res->add_content("$json");
+        }
+        $fail = 0;
       }
 
       last;
