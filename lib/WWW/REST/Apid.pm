@@ -2,7 +2,7 @@
 
 package WWW::REST::Apid;
 
-$WWW::REST::Apid::VERSION = '0.06';
+$WWW::REST::Apid::VERSION = '0.07';
 
 use strict;
 use warnings;
@@ -20,7 +20,7 @@ use CGI::Cookie;
 use MIME::Base64;
 use JSON;
 use Digest::SHA qw(sha256_base64);
-use Crypt::Random qw( makerandom );
+use Crypt::OpenSSL::Random;
 use Data::Validate::Struct;
 use DB_File;
 
@@ -285,7 +285,7 @@ sub _doauthbasic {
 sub _dosession {
   my ($self, $user) = @_;
 
-  my $session = sha256_base64(makerandom ( Size => 512, Strength => 1 ) );
+  my $session = sha256_base64(Crypt::OpenSSL::Random::random_bytes(64));
   $self->{ses}->{$session} = $user . "," . time;
   my $cookie = CGI::Cookie->new(
         -name    => 'Session',
@@ -616,7 +616,7 @@ and/or modify it under the same terms as Perl itself.
 
 =head1 VERSION
 
-apid Version 0.06.
+apid Version 0.07.
 
 =cut
 

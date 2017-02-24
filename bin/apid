@@ -2,7 +2,7 @@
 
 package WWW::REST::Apid::Daemon;
 
-$WWW::REST::Apid::Daemon::VERSION = '0.06';
+$WWW::REST::Apid::Daemon::VERSION = '0.07';
 
 use lib qw(../blib/lib);
 use WWW::REST::Apid;
@@ -65,7 +65,7 @@ sub addoc {
   my ($path, $doc) = @_;
 
   if (! $apidoc) {
-    $apidoc = &addtpl('head');    
+    $apidoc = &addtpl('head');
   }
 
   $apidoc .= &addtpl(cap  => $path);
@@ -569,6 +569,6 @@ and/or modify it under the same terms as Perl itself.
 
 =head1 VERSION
 
-apid Version 0.06.
+apid Version 0.07.
 
 =cut

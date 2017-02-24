@@ -1,3 +1,7 @@
+0.07:
+	switched from Crypt::Random to Crypt::OpenSSL::Random.
+	the latter requires Math::Random, which doesn't compile.
+
 0.06:
 	added config vars:
 	 - docroot: apid does a chdir() to this directory
